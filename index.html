@@ -3,18 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Game Launcher</title>
+  <title>GameVault</title>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg: #08081a;
       --card-bg: #13132b;
       --accent: #7c3aed;
-      --accent2: #06b6d4;
-      --glow: rgba(124, 58, 237, 0.6);
       --text: #f0f0ff;
       --muted: #6b6b9a;
-      --select-border: 4px;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -28,7 +25,6 @@
       cursor: none;
     }
 
-    /* Starfield background */
     body::before {
       content: '';
       position: fixed;
@@ -46,7 +42,6 @@
       z-index: 0;
     }
 
-    /* Ambient glow orbs */
     body::after {
       content: '';
       position: fixed;
@@ -72,6 +67,7 @@
       align-items: center;
       justify-content: space-between;
       margin-bottom: 36px;
+      flex-shrink: 0;
     }
 
     .logo {
@@ -81,79 +77,63 @@
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
-      letter-spacing: 1px;
     }
 
-    .logo span {
-      color: #f0f0ff;
-      -webkit-text-fill-color: #f0f0ff;
-    }
+    .logo span { color: #f0f0ff; -webkit-text-fill-color: #f0f0ff; }
 
-    .controls-hint {
-      display: flex;
-      gap: 20px;
-      align-items: center;
-      color: var(--muted);
-      font-size: 0.85rem;
-      font-weight: 700;
-    }
+    .controls-hint { display: flex; gap: 12px; }
 
     .hint-btn {
       background: #1e1e3f;
       border: 1px solid #2d2d5a;
       border-radius: 8px;
-      padding: 4px 10px;
+      padding: 5px 12px;
       font-size: 0.75rem;
+      font-weight: 700;
       color: #9090c0;
     }
 
     #game-info-bar {
-      height: 48px;
+      height: 52px;
       margin-bottom: 24px;
       display: flex;
       align-items: center;
       gap: 16px;
+      flex-shrink: 0;
       transition: opacity 0.3s;
     }
 
-    #game-info-bar.hidden { opacity: 0; }
+    #game-info-bar.hidden { opacity: 0; pointer-events: none; }
 
     #selected-title {
       font-family: 'Fredoka One', cursive;
       font-size: 1.6rem;
-      color: #fff;
     }
 
-    #selected-meta {
-      font-size: 0.85rem;
-      color: var(--muted);
-      font-weight: 700;
-    }
+    #selected-meta { font-size: 0.85rem; color: var(--muted); font-weight: 700; }
 
     #launch-hint {
       margin-left: auto;
       background: linear-gradient(135deg, #7c3aed, #06b6d4);
-      padding: 8px 20px;
+      padding: 8px 22px;
       border-radius: 50px;
       font-size: 0.85rem;
       font-weight: 800;
-      letter-spacing: 0.5px;
       animation: pulse 2s ease-in-out infinite;
     }
 
     @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.8; transform: scale(0.97); }
+      0%,100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.8; transform: scale(0.97); }
     }
 
-    /* Games grid */
     #grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
       gap: 24px;
       overflow-y: auto;
       flex: 1;
-      padding: 8px 4px;
+      padding: 8px 4px 24px;
       scrollbar-width: none;
     }
 
@@ -166,9 +146,13 @@
       cursor: pointer;
       aspect-ratio: 3/4;
       background: var(--card-bg);
-      border: 2px solid transparent;
-      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-      outline: none;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      animation: card-in 0.4s ease backwards;
+    }
+
+    @keyframes card-in {
+      from { opacity: 0; transform: translateY(20px) scale(0.95); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
     }
 
     .game-card::before {
@@ -188,11 +172,18 @@
       transition: transform 0.3s ease;
     }
 
-    .game-card .card-label {
+    .cover-placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 4rem;
+    }
+
+    .card-label {
       position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
+      bottom: 0; left: 0; right: 0;
       padding: 12px 14px;
       z-index: 2;
       font-family: 'Fredoka One', cursive;
@@ -202,17 +193,15 @@
       text-shadow: 0 2px 8px rgba(0,0,0,0.8);
     }
 
-    .game-card .card-label .players {
+    .card-label .filesize {
       font-family: 'Nunito', sans-serif;
       font-size: 0.7rem;
       font-weight: 700;
-      color: rgba(255,255,255,0.6);
+      color: rgba(255,255,255,0.5);
       margin-top: 2px;
     }
 
-    /* Selected state */
     .game-card.selected {
-      border-color: transparent;
       transform: scale(1.06) translateY(-4px);
       box-shadow:
         0 0 0 3px #7c3aed,
@@ -220,24 +209,15 @@
         0 20px 40px rgba(0,0,0,0.5);
     }
 
-    .game-card.selected img {
-      transform: scale(1.05);
-    }
+    .game-card.selected img { transform: scale(1.05); }
 
-    .game-card.selected .card-label {
-      color: #fff;
-    }
-
-    /* Corner badge for selected */
     .game-card.selected::after {
       content: '▶';
       position: absolute;
-      top: 10px;
-      right: 10px;
+      top: 10px; right: 10px;
       background: #7c3aed;
       color: #fff;
-      width: 28px;
-      height: 28px;
+      width: 28px; height: 28px;
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -248,19 +228,7 @@
       padding-left: 2px;
     }
 
-    /* Placeholder cover for missing images */
-    .game-card .cover-placeholder {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      font-size: 3rem;
-    }
-
-    /* Loading state */
+    /* Loading */
     #loading {
       position: fixed;
       inset: 0;
@@ -274,10 +242,7 @@
       transition: opacity 0.5s ease;
     }
 
-    #loading.fade-out {
-      opacity: 0;
-      pointer-events: none;
-    }
+    #loading.fade-out { opacity: 0; pointer-events: none; }
 
     .loader-logo {
       font-family: 'Fredoka One', cursive;
@@ -289,20 +254,19 @@
     }
 
     .loader-spinner {
-      width: 40px;
-      height: 40px;
+      width: 40px; height: 40px;
       border: 3px solid #1e1e3f;
       border-top-color: #7c3aed;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
 
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Empty state */
-    #empty {
+    .loader-status { font-size: 0.85rem; color: var(--muted); font-weight: 700; }
+
+    /* Message state */
+    #message {
       display: none;
       flex-direction: column;
       align-items: center;
@@ -313,16 +277,15 @@
       text-align: center;
     }
 
-    #empty .empty-icon { font-size: 4rem; }
-    #empty h2 { font-family: 'Fredoka One', cursive; font-size: 1.5rem; color: var(--text); }
-    #empty p { font-size: 0.9rem; max-width: 400px; line-height: 1.6; }
-    #empty code { background: #1e1e3f; padding: 2px 8px; border-radius: 4px; font-size: 0.85rem; color: #a78bfa; }
+    #message .msg-icon { font-size: 4rem; }
+    #message h2 { font-family: 'Fredoka One', cursive; font-size: 1.5rem; color: var(--text); }
+    #message p  { font-size: 0.9rem; max-width: 460px; line-height: 1.7; }
+    #message code { background: #1e1e3f; padding: 2px 8px; border-radius: 4px; color: #a78bfa; font-size: 0.85rem; }
 
-    /* Gamepad indicator */
+    /* Gamepad dot */
     #gamepad-status {
       position: fixed;
-      bottom: 24px;
-      right: 32px;
+      bottom: 20px; right: 32px;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -333,27 +296,13 @@
     }
 
     #gamepad-dot {
-      width: 8px;
-      height: 8px;
+      width: 8px; height: 8px;
       border-radius: 50%;
       background: #3f3f6a;
       transition: background 0.3s;
     }
 
-    #gamepad-dot.connected {
-      background: #22c55e;
-      box-shadow: 0 0 8px rgba(34,197,94,0.5);
-    }
-
-    /* Card entrance animation */
-    .game-card {
-      animation: card-in 0.4s ease backwards;
-    }
-
-    @keyframes card-in {
-      from { opacity: 0; transform: translateY(20px) scale(0.95); }
-      to { opacity: 1; transform: translateY(0) scale(1); }
-    }
+    #gamepad-dot.connected { background: #22c55e; box-shadow: 0 0 8px rgba(34,197,94,0.5); }
   </style>
 </head>
 <body>
@@ -361,6 +310,7 @@
 <div id="loading">
   <div class="loader-logo">🎮 GameVault</div>
   <div class="loader-spinner"></div>
+  <div class="loader-status" id="loader-status">Scanning games...</div>
 </div>
 
 <div id="app">
@@ -373,18 +323,13 @@
   </header>
 
   <div id="game-info-bar" class="hidden">
-    <div id="selected-title">—</div>
+    <div id="selected-title"></div>
     <div id="selected-meta"></div>
     <div id="launch-hint">Press A to Play</div>
   </div>
 
   <div id="grid"></div>
-
-  <div id="empty">
-    <div class="empty-icon">📂</div>
-    <h2>No Games Found</h2>
-    <p>Edit <code>games.json</code> and add your game files to GitHub Releases, then update the URLs.</p>
-  </div>
+  <div id="message"></div>
 </div>
 
 <div id="gamepad-status">
@@ -393,41 +338,114 @@
 </div>
 
 <script>
-  // ─── State ───────────────────────────────────────────────
-  let games = [];
+  let games         = [];
   let selectedIndex = 0;
-  let gamepadIndex = null;
+  let gamepadIndex  = null;
   let gamepadPollId = null;
-  let lastAxes = [];
-  let lastButtons = [];
+  let lastAxes      = [];
+  let lastButtons   = [];
 
-  // ─── Load Games ──────────────────────────────────────────
-  async function loadGames() {
+  const palettes = [
+    ['#7c3aed','#06b6d4'], ['#ea580c','#facc15'],
+    ['#16a34a','#06b6d4'], ['#db2777','#7c3aed'],
+    ['#0284c7','#22c55e'], ['#b45309','#ef4444'],
+    ['#0891b2','#a78bfa'], ['#15803d','#facc15']
+  ];
+
+  const icons = ['🎳','🎵','⚽','🎯','🏆','🎉','🏄','🎮'];
+
+  // Clean up filename into a readable title
+  function toTitle(filename) {
+    return filename
+      .replace(/\.rvz$/i, '')
+      .replace(/[-_]/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase())
+      .trim();
+  }
+
+  function formatSize(bytes) {
+    if (!bytes) return '';
+    const gb = bytes / 1073741824;
+    return gb >= 1 ? gb.toFixed(1) + ' GB' : (bytes / 1048576).toFixed(0) + ' MB';
+  }
+
+  // ─── Boot ─────────────────────────────────────────────────
+  async function init() {
+    setStatus('Reading config...');
+    let config;
+
     try {
-      const res = await fetch('games.json');
-      const data = await res.json();
-      games = data.games || [];
-    } catch (e) {
-      games = [];
+      const res = await fetch('config.json');
+      config = await res.json();
+    } catch {
+      showMessage('⚙️', 'Missing config.json',
+        'Make sure <code>config.json</code> is in your repo with your GitHub <code>username</code> and <code>repo</code>.');
+      hideLoading();
+      return;
     }
-    renderGrid();
+
+    if (!config.username || config.username === 'YOUR_GITHUB_USERNAME') {
+      showMessage('⚙️', 'Set Up config.json',
+        'Open <code>config.json</code> and replace <code>YOUR_GITHUB_USERNAME</code> with your actual GitHub username.');
+      hideLoading();
+      return;
+    }
+
+    setStatus('Scanning release for games...');
+    await fetchGames(config.username, config.repo);
     hideLoading();
+  }
+
+  async function fetchGames(username, repo) {
+    let release;
+
+    try {
+      const res = await fetch(
+        `https://api.github.com/repos/${username}/${repo}/releases/tags/games`,
+        { headers: { 'Accept': 'application/vnd.github.v3+json' } }
+      );
+
+      if (res.status === 404) {
+        showMessage('📦', 'No "games" Release Found',
+          `Go to your GitHub repo → Releases → create a release tagged <code>games</code> and upload your <code>.rvz</code> files there.`);
+        return;
+      }
+
+      if (!res.ok) throw new Error(res.status);
+      release = await res.json();
+    } catch {
+      showMessage('🌐', 'Could Not Reach GitHub',
+        'Check the TV\'s internet connection and refresh. Make sure the repo is public.');
+      return;
+    }
+
+    const assets = (release.assets || []).filter(a => a.name.toLowerCase().endsWith('.rvz'));
+
+    if (!assets.length) {
+      showMessage('🎮', 'No .rvz Files Found',
+        'Your <code>games</code> release exists but contains no <code>.rvz</code> files. Upload your game files there.');
+      return;
+    }
+
+    games = assets.map((asset, i) => ({
+      id:     asset.name.replace(/\.rvz$/i, ''),
+      title:  toTitle(asset.name),
+      file:   asset.browser_download_url,
+      size:   formatSize(asset.size),
+      cover:  `covers/${asset.name.replace(/\.rvz$/i, '')}.jpg`,
+      core:   'dolphin',
+      palette: palettes[i % palettes.length],
+      icon:   icons[i % icons.length]
+    }));
+
+    renderGrid();
   }
 
   // ─── Render ───────────────────────────────────────────────
   function renderGrid() {
     const grid = document.getElementById('grid');
-    const empty = document.getElementById('empty');
-
-    if (!games.length) {
-      grid.style.display = 'none';
-      empty.style.display = 'flex';
-      document.getElementById('game-info-bar').classList.add('hidden');
-      return;
-    }
-
     grid.style.display = 'grid';
-    empty.style.display = 'none';
+    document.getElementById('message').style.display = 'none';
     grid.innerHTML = '';
 
     games.forEach((game, i) => {
@@ -435,34 +453,19 @@
       card.className = 'game-card' + (i === selectedIndex ? ' selected' : '');
       card.dataset.index = i;
       card.style.animationDelay = `${i * 0.05}s`;
-      card.tabIndex = 0;
+      const [c1, c2] = game.palette;
 
-      // Color palettes per game for placeholder
-      const colors = [
-        ['#7c3aed','#06b6d4'], ['#ea580c','#facc15'],
-        ['#16a34a','#06b6d4'], ['#db2777','#7c3aed'],
-        ['#0284c7','#22c55e'], ['#b45309','#ef4444']
-      ];
-      const [c1, c2] = colors[i % colors.length];
-
-      if (game.cover) {
-        card.innerHTML = `
-          <img src="${game.cover}" alt="${game.title}" 
-               onerror="this.parentElement.innerHTML = makePlaceholder(${i}, '${game.title.replace(/'/g,"\\'")}', '${c1}', '${c2}')">
-          <div class="card-label">
-            ${game.title}
-            <div class="players">${game.players ? `${game.players} Players` : ''}</div>
-          </div>`;
-      } else {
-        card.innerHTML = `
-          <div class="cover-placeholder" style="background: linear-gradient(135deg, ${c1}22, ${c2}22)">
-            <span>${game.icon || '🎮'}</span>
-          </div>
-          <div class="card-label">
-            ${game.title}
-            <div class="players">${game.players ? `${game.players} Players` : ''}</div>
-          </div>`;
-      }
+      card.innerHTML = `
+        <img src="${game.cover}" alt="${game.title}"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div class="cover-placeholder"
+             style="background:linear-gradient(135deg,${c1}33,${c2}33);display:none">
+          ${game.icon}
+        </div>
+        <div class="card-label">
+          ${game.title}
+          <div class="filesize">${game.size}</div>
+        </div>`;
 
       card.addEventListener('click', () => { selectGame(i); launchGame(); });
       grid.appendChild(card);
@@ -471,23 +474,12 @@
     updateInfoBar();
   }
 
-  window.makePlaceholder = function(i, title, c1, c2) {
-    const icons = ['🎮','🎳','🎵','⚽','🎯','🏆'];
-    return `<div class="cover-placeholder" style="background: linear-gradient(135deg, ${c1}22, ${c2}22)">
-      <span>${icons[i % icons.length]}</span>
-    </div>
-    <div class="card-label">${title}</div>`;
-  };
-
-  function selectGame(index) {
-    const prev = document.querySelector('.game-card.selected');
-    if (prev) prev.classList.remove('selected');
-    selectedIndex = index;
-    const next = document.querySelector(`.game-card[data-index="${index}"]`);
-    if (next) {
-      next.classList.add('selected');
-      next.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
+  function selectGame(i) {
+    document.querySelector('.game-card.selected')?.classList.remove('selected');
+    selectedIndex = i;
+    const card = document.querySelector(`.game-card[data-index="${i}"]`);
+    card?.classList.add('selected');
+    card?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     updateInfoBar();
   }
 
@@ -495,48 +487,38 @@
     const bar = document.getElementById('game-info-bar');
     if (!games.length) { bar.classList.add('hidden'); return; }
     bar.classList.remove('hidden');
-    const game = games[selectedIndex];
-    document.getElementById('selected-title').textContent = game.title;
-    document.getElementById('selected-meta').textContent =
-      [game.players ? `${game.players} Players` : '', game.year || ''].filter(Boolean).join(' · ');
+    const g = games[selectedIndex];
+    document.getElementById('selected-title').textContent = g.title;
+    document.getElementById('selected-meta').textContent  = g.size;
   }
 
   // ─── Launch ───────────────────────────────────────────────
   function launchGame() {
     if (!games.length) return;
-    const game = games[selectedIndex];
-    const params = new URLSearchParams({
-      id: game.id,
-      title: game.title,
-      file: game.file,
-      core: game.core || 'dolphin'
-    });
-    window.location.href = `emulator.html?${params.toString()}`;
+    const g = games[selectedIndex];
+    const p = new URLSearchParams({ id: g.id, title: g.title, file: g.file, core: g.core });
+    window.location.href = `emulator.html?${p}`;
   }
 
-  // ─── Keyboard Navigation ─────────────────────────────────
+  // ─── Keyboard ─────────────────────────────────────────────
   document.addEventListener('keydown', e => {
+    if (!games.length) return;
     const cols = getColumns();
-    const len = games.length;
-    if (!len) return;
-
-    if (e.key === 'ArrowRight') { e.preventDefault(); selectGame((selectedIndex + 1) % len); }
-    else if (e.key === 'ArrowLeft') { e.preventDefault(); selectGame((selectedIndex - 1 + len) % len); }
-    else if (e.key === 'ArrowDown') { e.preventDefault(); selectGame(Math.min(selectedIndex + cols, len - 1)); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); selectGame(Math.max(selectedIndex - cols, 0)); }
+    const len  = games.length;
+    if      (e.key === 'ArrowRight') { e.preventDefault(); selectGame((selectedIndex + 1) % len); }
+    else if (e.key === 'ArrowLeft')  { e.preventDefault(); selectGame((selectedIndex - 1 + len) % len); }
+    else if (e.key === 'ArrowDown')  { e.preventDefault(); selectGame(Math.min(selectedIndex + cols, len - 1)); }
+    else if (e.key === 'ArrowUp')    { e.preventDefault(); selectGame(Math.max(selectedIndex - cols, 0)); }
     else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); launchGame(); }
   });
 
   function getColumns() {
     const grid = document.getElementById('grid');
-    if (!grid || !grid.firstChild) return 4;
-    const style = getComputedStyle(grid);
-    return style.gridTemplateColumns.split(' ').length;
+    if (!grid?.firstChild) return 4;
+    return getComputedStyle(grid).gridTemplateColumns.split(' ').length;
   }
 
-  // ─── Gamepad / Wii Remote (via Gamepad API) ──────────────
-  // Wii Remote connected via Bluetooth shows up as a standard gamepad
-  // D-pad = buttons 12/13/14/15, A button = button 0 or 1
+  // ─── Gamepad API (Wii Remote via Bluetooth) ───────────────
   window.addEventListener('gamepadconnected', e => {
     gamepadIndex = e.gamepad.index;
     document.getElementById('gamepad-dot').classList.add('connected');
@@ -554,45 +536,50 @@
   function startGamepadPoll() {
     function poll() {
       const gp = navigator.getGamepads()[gamepadIndex];
-      if (!gp) { gamepadPollId = requestAnimationFrame(poll); return; }
+      if (!gp || !games.length) { gamepadPollId = requestAnimationFrame(poll); return; }
 
       const buttons = gp.buttons.map(b => b.pressed);
-      const axes = gp.axes;
-      const len = games.length;
-      if (!len) { gamepadPollId = requestAnimationFrame(poll); return; }
+      const axes    = gp.axes;
+      const cols    = getColumns();
+      const len     = games.length;
 
-      const cols = getColumns();
-
-      // D-pad: up=12, down=13, left=14, right=15
-      // Also support left stick (axes 0,1)
-      const up    = (buttons[12] && !lastButtons[12]) || (axes[1] < -0.5 && (lastAxes[1] || 0) >= -0.5);
-      const down  = (buttons[13] && !lastButtons[13]) || (axes[1] >  0.5 && (lastAxes[1] || 0) <=  0.5);
-      const left  = (buttons[14] && !lastButtons[14]) || (axes[0] < -0.5 && (lastAxes[0] || 0) >= -0.5);
-      const right = (buttons[15] && !lastButtons[15]) || (axes[0] >  0.5 && (lastAxes[0] || 0) <=  0.5);
-      // A button = 0, B = 1 for most gamepads; Wii Remote A = 0
+      const up      = (buttons[12] && !lastButtons[12]) || (axes[1] < -0.5 && (lastAxes[1]||0) >= -0.5);
+      const down    = (buttons[13] && !lastButtons[13]) || (axes[1] >  0.5 && (lastAxes[1]||0) <=  0.5);
+      const left    = (buttons[14] && !lastButtons[14]) || (axes[0] < -0.5 && (lastAxes[0]||0) >= -0.5);
+      const right   = (buttons[15] && !lastButtons[15]) || (axes[0] >  0.5 && (lastAxes[0]||0) <=  0.5);
       const confirm = (buttons[0] && !lastButtons[0]) || (buttons[1] && !lastButtons[1]);
 
-      if (right) selectGame((selectedIndex + 1) % len);
-      else if (left) selectGame((selectedIndex - 1 + len) % len);
-      else if (down) selectGame(Math.min(selectedIndex + cols, len - 1));
-      else if (up) selectGame(Math.max(selectedIndex - cols, 0));
+      if      (right)   selectGame((selectedIndex + 1) % len);
+      else if (left)    selectGame((selectedIndex - 1 + len) % len);
+      else if (down)    selectGame(Math.min(selectedIndex + cols, len - 1));
+      else if (up)      selectGame(Math.max(selectedIndex - cols, 0));
       if (confirm) launchGame();
 
       lastButtons = buttons;
-      lastAxes = [...axes];
+      lastAxes    = [...axes];
       gamepadPollId = requestAnimationFrame(poll);
     }
     gamepadPollId = requestAnimationFrame(poll);
   }
 
-  // ─── Misc ─────────────────────────────────────────────────
+  // ─── Helpers ──────────────────────────────────────────────
+  function setStatus(msg) { document.getElementById('loader-status').textContent = msg; }
+
   function hideLoading() {
     const el = document.getElementById('loading');
     el.classList.add('fade-out');
     setTimeout(() => el.remove(), 500);
   }
 
-  loadGames();
+  function showMessage(icon, title, body) {
+    document.getElementById('grid').style.display = 'none';
+    document.getElementById('game-info-bar').classList.add('hidden');
+    const msg = document.getElementById('message');
+    msg.style.display = 'flex';
+    msg.innerHTML = `<div class="msg-icon">${icon}</div><h2>${title}</h2><p>${body}</p>`;
+  }
+
+  init();
 </script>
 </body>
 </html>
