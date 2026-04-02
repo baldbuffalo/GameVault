@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Playing...</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #000;
+      color: #fff;
+      font-family: 'Nunito', sans-serif;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #loading-screen {
+      position: fixed;
+      inset: 0;
+      background: #08081a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      z-index: 200;
+      transition: opacity 0.6s ease;
+    }
+
+    #loading-screen.fade-out { opacity: 0; pointer-events: none; }
+
+    .loading-title {
+      font-family: 'Fredoka One', cursive;
+      font-size: 2rem;
+      background: linear-gradient(135deg, #a78bfa, #06b6d4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .loading-game-name {
+      font-family: 'Fredoka One', cursive;
+      font-size: 1.4rem;
+      color: #fff;
+    }
+
+    .loading-spinner {
+      width: 48px; height: 48px;
+      border: 4px solid #1e1e3f;
+      border-top-color: #7c3aed;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-hint { font-size: 0.8rem; color: #6b6b9a; }
+
+    /* Error */
+    #error-screen {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #08081a;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      z-index: 200;
+      text-align: center;
+      padding: 32px;
+    }
+
+    #error-screen .error-icon { font-size: 4rem; }
+
+    #error-screen h2 {
+      font-family: 'Fredoka One', cursive;
+      font-size: 1.8rem;
+      color: #ef4444;
+    }
+
+    #error-screen p { color: #6b6b9a; font-size: 0.95rem; max-width: 480px; line-height: 1.6; }
+
+    #error-screen code {
+      background: #1e1e3f;
+      padding: 2px 8px;
+      border-radius: 4px;
+      color: #a78bfa;
+      font-size: 0.85rem;
+    }
+
+    .back-btn {
+      background: linear-gradient(135deg, #7c3aed, #06b6d4);
+      border: none;
+      color: #fff;
+      font-family: 'Fredoka One', cursive;
+      font-size: 1.1rem;
+      padding: 12px 28px;
+      border-radius: 50px;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: transform 0.15s, opacity 0.15s;
+    }
+
+    .back-btn:hover { transform: scale(1.04); opacity: 0.9; }
+
+    /* Back overlay during play */
+    #back-overlay {
+      position: fixed;
+      top: 16px; left: 16px;
+      z-index: 100;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+
+    #back-overlay.visible { opacity: 1; pointer-events: all; }
+
+    .back-pill {
+      background: rgba(0,0,0,0.75);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: rgba(255,255,255,0.8);
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 8px 16px;
+      border-radius: 50px;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.2s;
+    }
+
+    .back-pill:hover {
+      background: rgba(124,58,237,0.6);
+      border-color: rgba(124,58,237,0.5);
+      color: #fff;
+    }
+
+    #game { width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+
+<div id="loading-screen">
+  <div class="loading-title">🎮 GameVault</div>
+  <div class="loading-game-name" id="game-name-display">Loading...</div>
+  <div class="loading-spinner"></div>
+  <div class="loading-hint">First load downloads the emulator core — this takes a moment</div>
+</div>
+
+<div id="error-screen">
+  <div class="error-icon">⚠️</div>
+  <h2 id="error-title">Something went wrong</h2>
+  <p id="error-message"></p>
+  <button class="back-btn" onclick="goBack()">← Back to Games</button>
+</div>
+
+<div id="back-overlay">
+  <div class="back-pill" onclick="goBack()">← Back to Games</div>
+</div>
+
+<div id="game"></div>
+
+<script>
+  const params    = new URLSearchParams(window.location.search);
+  const gameTitle = params.get('title') || 'Game';
+  const gameFile  = params.get('file')  || '';
+  const gameCore  = params.get('core')  || 'dolphin';
+
+  document.title = `Playing ${gameTitle}`;
+  document.getElementById('game-name-display').textContent = gameTitle;
+
+  if (!gameFile) {
+    showError('No Game File', 'No game file URL was found. Go back and check your release assets.');
+  } else {
+    initEmulator();
+  }
+
+  function initEmulator() {
+    window.EJS_player        = '#game';
+    window.EJS_core          = gameCore;
+    window.EJS_gameUrl       = gameFile;
+    window.EJS_pathtodata    = 'https://cdn.emulatorjs.org/stable/data/';
+    window.EJS_color         = '#7c3aed';
+    window.EJS_startOnLoaded = true;
+    window.EJS_Buttons = {
+      playPause:    false,
+      restart:      true,
+      screenshot:   false,
+      fullscreen:   true,
+      saveState:    true,
+      loadState:    true,
+      settings:     true,
+    };
+
+    window.EJS_onGameStart = () => {
+      const ls = document.getElementById('loading-screen');
+      ls.classList.add('fade-out');
+      setTimeout(() => ls.remove(), 700);
+      showBackButton();
+    };
+
+    window.EJS_onLoadError = () => {
+      showError('Failed to Load Game',
+        `Could not load "${gameTitle}". Make sure the .rvz file is attached to your GitHub Release and the repo is public.`);
+    };
+
+    const script = document.createElement('script');
+    script.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
+    script.onerror = () => showError('Emulator Failed to Load',
+      'Could not fetch EmulatorJS. Check the TV internet connection and try again.');
+    document.body.appendChild(script);
+  }
+
+  function goBack() { window.location.href = 'index.html'; }
+
+  let backTimeout;
+  function showBackButton() {
+    const overlay = document.getElementById('back-overlay');
+    const show = () => {
+      overlay.classList.add('visible');
+      clearTimeout(backTimeout);
+      backTimeout = setTimeout(() => overlay.classList.remove('visible'), 3000);
+    };
+    show();
+    document.addEventListener('mousemove', show);
+  }
+
+  function showError(title, message) {
+    const ls = document.getElementById('loading-screen');
+    ls.classList.add('fade-out');
+    setTimeout(() => ls.remove(), 500);
+    document.getElementById('error-title').textContent   = title;
+    document.getElementById('error-message').textContent = message;
+    document.getElementById('error-screen').style.display = 'flex';
+  }
+
+  // Home key → back to launcher
+  document.addEventListener('keydown', e => { if (e.key === 'Home') goBack(); });
+</script>
+</body>
+</html>
