@@ -184,7 +184,7 @@
     window.EJS_player        = '#game';
     window.EJS_core          = gameCore;
     window.EJS_gameUrl       = gameFile;
-    window.EJS_pathtodata    = 'https://cdn.emulatorjs.org/stable/data/';
+    window.EJS_pathtodata    = 'https://cdn.emulatorjs.org/latest/data/';
     window.EJS_color         = '#7c3aed';
     window.EJS_startOnLoaded = true;
     window.EJS_Buttons = {
@@ -210,9 +210,9 @@
     };
 
     const script = document.createElement('script');
-    script.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
+    script.src = 'https://cdn.emulatorjs.org/latest/data/loader.js';
     script.onerror = () => showError('Emulator Failed to Load',
-      'Could not fetch EmulatorJS. Check the TV internet connection and try again.');
+      'Could not fetch EmulatorJS. Check your internet connection and try again.');
     document.body.appendChild(script);
   }
 
