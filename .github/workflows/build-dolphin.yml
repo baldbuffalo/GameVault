@@ -1,0 +1,106 @@
+name: Build Dolphin WASM
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/build-dolphin.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout GameVault
+        uses: actions/checkout@v6.0.2
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake ninja-build git python3 \
+            libevdev-dev libudev-dev \
+            libpulse-dev libgl1-mesa-dev \
+            pkg-config
+
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: latest
+
+      - name: Verify emcc
+        run: emcc --version
+
+      - name: Cache Dolphin source
+        uses: actions/cache@v5.0.4
+        id: dolphin-cache
+        with:
+          path: .dolphin-src
+          key: dolphin-src-${{ github.run_id }}
+          restore-keys: dolphin-src-
+
+      - name: Clone Dolphin
+        if: steps.dolphin-cache.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth=1 https://github.com/dolphin-emu/dolphin.git .dolphin-src
+          cd .dolphin-src
+          git submodule update --init --recursive
+
+      - name: Configure
+        run: |
+          mkdir -p .dolphin-src/build-wasm
+          cd .dolphin-src/build-wasm
+          emcmake cmake .. \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_SDL=OFF \
+            -DENABLE_QT=OFF \
+            -DENABLE_TESTS=OFF \
+            -DENABLE_NOGUI=ON \
+            -DUSE_SHARED_ENET=OFF \
+            -DENABLE_ANALYTICS=OFF \
+            2>&1 | tee cmake-output.log || true
+          echo "--- CMake errors ---"
+          grep -i "error\|could not" cmake-output.log | head -40 || true
+
+      - name: Build
+        run: |
+          cd .dolphin-src/build-wasm
+          emmake ninja 2>&1 | tee build-output.log || true
+          echo "--- First 50 errors ---"
+          grep "error:" build-output.log | head -50 || true
+
+      - name: Upload build logs
+        uses: actions/upload-artifact@v7.0.0
+        if: always()
+        with:
+          name: build-logs
+          path: |
+            .dolphin-src/build-wasm/cmake-output.log
+            .dolphin-src/build-wasm/build-output.log
+          retention-days: 7
+
+      - name: Copy WASM output
+        run: |
+          mkdir -p dolphin-wasm
+          for f in dolphin.js dolphin.wasm dolphin.data \
+                    Dolphin.js Dolphin.wasm Dolphin.data; do
+            if [ -f ".dolphin-src/build-wasm/$f" ]; then
+              cp ".dolphin-src/build-wasm/$f" dolphin-wasm/
+              echo "✓ Copied $f"
+            fi
+          done
+          ls -lh dolphin-wasm/ || echo "No output files yet"
+
+      - name: Commit WASM files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add dolphin-wasm/
+          if git diff --staged --quiet; then
+            echo "No new WASM files to commit"
+          else
+            git commit -m "build: add Dolphin WASM output [skip ci]"
+            git push
+          fi
