@@ -228,7 +228,6 @@
       padding-left: 2px;
     }
 
-    /* Loading */
     #loading {
       position: fixed;
       inset: 0;
@@ -265,7 +264,6 @@
 
     .loader-status { font-size: 0.85rem; color: var(--muted); font-weight: 700; }
 
-    /* Message state */
     #message {
       display: none;
       flex-direction: column;
@@ -282,7 +280,6 @@
     #message p  { font-size: 0.9rem; max-width: 460px; line-height: 1.7; }
     #message code { background: #1e1e3f; padding: 2px 8px; border-radius: 4px; color: #a78bfa; font-size: 0.85rem; }
 
-    /* Gamepad dot */
     #gamepad-status {
       position: fixed;
       bottom: 20px; right: 32px;
@@ -354,7 +351,6 @@
 
   const icons = ['🎳','🎵','⚽','🎯','🏆','🎉','🏄','🎮'];
 
-  // Clean up filename into a readable title
   function toTitle(filename) {
     return filename
       .replace(/\.rvz$/i, '')
@@ -369,7 +365,6 @@
     return gb >= 1 ? gb.toFixed(1) + ' GB' : (bytes / 1048576).toFixed(0) + ' MB';
   }
 
-  // ─── Boot ─────────────────────────────────────────────────
   async function init() {
     setStatus('Reading config...');
     let config;
@@ -415,7 +410,7 @@
       release = await res.json();
     } catch {
       showMessage('🌐', 'Could Not Reach GitHub',
-        'Check the TV\'s internet connection and refresh. Make sure the repo is public.');
+        'Check the internet connection and refresh. Make sure the repo is public.');
       return;
     }
 
@@ -428,20 +423,18 @@
     }
 
     games = assets.map((asset, i) => ({
-      id:     asset.name.replace(/\.rvz$/i, ''),
-      title:  toTitle(asset.name),
-      file:   asset.browser_download_url,
-      size:   formatSize(asset.size),
-      cover:  `covers/${asset.name.replace(/\.rvz$/i, '')}.jpg`,
-      core:   'dolphin',
+      id:      asset.name.replace(/\.rvz$/i, ''),
+      title:   toTitle(asset.name),
+      file:    asset.browser_download_url,
+      size:    formatSize(asset.size),
+      cover:   `covers/${asset.name.replace(/\.rvz$/i, '')}.jpg`,
       palette: palettes[i % palettes.length],
-      icon:   icons[i % icons.length]
+      icon:    icons[i % icons.length]
     }));
 
     renderGrid();
   }
 
-  // ─── Render ───────────────────────────────────────────────
   function renderGrid() {
     const grid = document.getElementById('grid');
     grid.style.display = 'grid';
@@ -492,15 +485,13 @@
     document.getElementById('selected-meta').textContent  = g.size;
   }
 
-  // ─── Launch ───────────────────────────────────────────────
   function launchGame() {
     if (!games.length) return;
     const g = games[selectedIndex];
-    const p = new URLSearchParams({ id: g.id, title: g.title, file: g.file, core: g.core });
+    const p = new URLSearchParams({ id: g.id, title: g.title, file: g.file });
     window.location.href = `emulator.html?${p}`;
   }
 
-  // ─── Keyboard ─────────────────────────────────────────────
   document.addEventListener('keydown', e => {
     if (!games.length) return;
     const cols = getColumns();
@@ -518,7 +509,6 @@
     return getComputedStyle(grid).gridTemplateColumns.split(' ').length;
   }
 
-  // ─── Gamepad API (Wii Remote via Bluetooth) ───────────────
   window.addEventListener('gamepadconnected', e => {
     gamepadIndex = e.gamepad.index;
     document.getElementById('gamepad-dot').classList.add('connected');
@@ -562,7 +552,6 @@
     gamepadPollId = requestAnimationFrame(poll);
   }
 
-  // ─── Helpers ──────────────────────────────────────────────
   function setStatus(msg) { document.getElementById('loader-status').textContent = msg; }
 
   function hideLoading() {
