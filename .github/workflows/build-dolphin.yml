@@ -103,6 +103,18 @@ jobs:
             .dolphin-src/build-wasm/build-output.log
           retention-days: 7
 
+      - name: Debug build output
+        if: always()
+        run: |
+          echo "--- Build dir contents ---"
+          ls -lh .dolphin-src/build-wasm/ || echo "build-wasm dir missing"
+          echo "--- Any .js files ---"
+          find .dolphin-src/build-wasm -name "*.js" 2>/dev/null | head -20 || true
+          echo "--- Any .wasm files ---"
+          find .dolphin-src/build-wasm -name "*.wasm" 2>/dev/null | head -20 || true
+          echo "--- Last 30 lines of build log ---"
+          tail -30 .dolphin-src/build-wasm/build-output.log || true
+
       - name: Copy WASM output
         run: |
           mkdir -p dolphin-wasm
