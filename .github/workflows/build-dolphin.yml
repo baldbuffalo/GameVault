@@ -38,8 +38,11 @@ jobs:
       - name: Get latest Dolphin commit and release
         id: dolphin-version
         run: |
-          SHA=$(git ls-remote https://github.com/dolphin-emu/dolphin.git HEAD | cut -f1)
+          SHA=$(git ls-remote https://github.com/dolphin-emu/dolphin.git HEAD | head -1 | cut -f1)
           RELEASE=$(curl -s https://api.github.com/repos/dolphin-emu/dolphin/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
+          if [ -z "$RELEASE" ]; then
+            RELEASE="no-release"
+          fi
           echo "sha=$SHA" >> $GITHUB_OUTPUT
           echo "release=$RELEASE" >> $GITHUB_OUTPUT
           echo "Latest commit: $SHA"
