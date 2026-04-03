@@ -16,6 +16,7 @@
       overflow: hidden;
     }
 
+    /* ── Loading screen ── */
     #loading-screen {
       position: fixed;
       inset: 0;
@@ -56,9 +57,25 @@
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .loading-hint { font-size: 0.8rem; color: #6b6b9a; }
+    .loading-hint { font-size: 0.8rem; color: #6b6b9a; text-align: center; max-width: 400px; }
 
-    /* Error */
+    .loading-progress {
+      width: 280px;
+      height: 4px;
+      background: #1e1e3f;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .loading-progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #7c3aed, #06b6d4);
+      border-radius: 2px;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    /* ── Error screen ── */
     #error-screen {
       display: none;
       position: fixed;
@@ -106,7 +123,7 @@
 
     .back-btn:hover { transform: scale(1.04); opacity: 0.9; }
 
-    /* Back overlay during play */
+    /* ── Back overlay ── */
     #back-overlay {
       position: fixed;
       top: 16px; left: 16px;
@@ -140,7 +157,21 @@
       color: #fff;
     }
 
-    #game { width: 100vw; height: 100vh; }
+    /* ── Game canvas ── */
+    #game-container {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+    }
+
+    #game-canvas {
+      max-width: 100%;
+      max-height: 100%;
+      display: block;
+    }
   </style>
 </head>
 <body>
@@ -149,7 +180,10 @@
   <div class="loading-title">🎮 GameVault</div>
   <div class="loading-game-name" id="game-name-display">Loading...</div>
   <div class="loading-spinner"></div>
-  <div class="loading-hint">First load downloads the emulator core — this takes a moment</div>
+  <div class="loading-progress">
+    <div class="loading-progress-bar" id="progress-bar"></div>
+  </div>
+  <div class="loading-hint" id="loading-hint">Loading Dolphin core...</div>
 </div>
 
 <div id="error-screen">
@@ -163,57 +197,146 @@
   <div class="back-pill" onclick="goBack()">← Back to Games</div>
 </div>
 
-<div id="game"></div>
+<div id="game-container">
+  <canvas id="game-canvas"></canvas>
+</div>
 
 <script>
   const params    = new URLSearchParams(window.location.search);
   const gameTitle = params.get('title') || 'Game';
   const gameFile  = params.get('file')  || '';
-  const gameCore  = params.get('core')  || 'dolphin';
 
   document.title = `Playing ${gameTitle}`;
   document.getElementById('game-name-display').textContent = gameTitle;
 
+  const DOLPHIN_BASE = 'dolphin-wasm/';
+
+  // ── Entry point ────────────────────────────────────────────
   if (!gameFile) {
-    showError('No Game File', 'No game file URL was found. Go back and check your release assets.');
+    showError('No Game File', 'No game file URL was provided. Go back and try again.');
   } else {
-    initEmulator();
+    checkCoreAndStart();
   }
 
-  function initEmulator() {
-    window.EJS_player        = '#game';
-    window.EJS_core          = gameCore;
-    window.EJS_gameUrl       = gameFile;
-    window.EJS_pathtodata    = 'https://cdn.emulatorjs.org/latest/data/';
-    window.EJS_color         = '#7c3aed';
-    window.EJS_startOnLoaded = true;
-    window.EJS_Buttons = {
-      playPause:    false,
-      restart:      true,
-      screenshot:   false,
-      fullscreen:   true,
-      saveState:    true,
-      loadState:    true,
-      settings:     true,
+  async function checkCoreAndStart() {
+    // Check if WASM core exists in our repo
+    try {
+      const res = await fetch(DOLPHIN_BASE + 'dolphin.js', { method: 'HEAD' });
+      if (!res.ok) throw new Error('not found');
+      setHint('Core found — loading emulator...');
+      setProgress(10);
+      await loadDolphin();
+    } catch {
+      showError(
+        'Dolphin Core Not Built Yet',
+        'The Dolphin WASM core hasn\'t been compiled yet. ' +
+        'Go to your GitHub repo → Actions → Run the "Build Dolphin WASM" workflow. ' +
+        'Once it completes, come back and try again.'
+      );
+    }
+  }
+
+  // ── Load Dolphin WASM ──────────────────────────────────────
+  async function loadDolphin() {
+    // Configure the Dolphin module before the script loads
+    window.Module = {
+      canvas: document.getElementById('game-canvas'),
+
+      // Called by emscripten as files download
+      setStatus(text) {
+        if (!text) return;
+        setHint(text);
+        // Parse emscripten progress messages like "Downloading data... (x/y)"
+        const m = text.match(/\((\d+)\/(\d+)\)/);
+        if (m) setProgress(10 + Math.round((parseInt(m[1]) / parseInt(m[2])) * 60));
+      },
+
+      onRuntimeInitialized() {
+        setProgress(75);
+        setHint('Core ready — loading game...');
+        loadGame();
+      },
+
+      print(text)    { console.log('[Dolphin]', text); },
+      printErr(text) { console.warn('[Dolphin]', text); },
+
+      // Emscripten looks for this to find data files
+      locateFile(path) {
+        return DOLPHIN_BASE + path;
+      }
     };
 
-    window.EJS_onGameStart = () => {
-      const ls = document.getElementById('loading-screen');
-      ls.classList.add('fade-out');
-      setTimeout(() => ls.remove(), 700);
-      showBackButton();
-    };
-
-    window.EJS_onLoadError = () => {
-      showError('Failed to Load Game',
-        `Could not load "${gameTitle}". Make sure the .rvz file is attached to your GitHub Release and the repo is public.`);
-    };
-
+    // Inject the Dolphin JS glue
     const script = document.createElement('script');
-    script.src = 'https://cdn.emulatorjs.org/latest/data/loader.js';
-    script.onerror = () => showError('Emulator Failed to Load',
-      'Could not fetch EmulatorJS. Check your internet connection and try again.');
+    script.src = DOLPHIN_BASE + 'dolphin.js';
+    script.onerror = () => showError(
+      'Failed to Load Core',
+      'dolphin.js failed to load. The build may be incomplete — check the GitHub Actions logs.'
+    );
     document.body.appendChild(script);
+  }
+
+  // ── Load the game ROM ──────────────────────────────────────
+  async function loadGame() {
+    setHint(`Downloading ${gameTitle}...`);
+
+    try {
+      const res = await fetch(gameFile);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const total  = parseInt(res.headers.get('content-length') || '0');
+      const reader = res.body.getReader();
+      const chunks = [];
+      let received = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.length;
+        if (total) setProgress(75 + Math.round((received / total) * 20));
+      }
+
+      const gameData = new Uint8Array(received);
+      let offset = 0;
+      for (const chunk of chunks) {
+        gameData.set(chunk, offset);
+        offset += chunk.length;
+      }
+
+      setProgress(97);
+      setHint('Starting game...');
+
+      // Write the ROM into Dolphin's virtual filesystem
+      const filename = '/game.rvz';
+      Module.FS.writeFile(filename, gameData);
+
+      // Boot it
+      Module.dolphinBoot(filename);
+
+      // Fade out loading screen
+      setProgress(100);
+      setTimeout(() => {
+        document.getElementById('loading-screen').classList.add('fade-out');
+        setTimeout(() => document.getElementById('loading-screen').remove(), 700);
+        showBackButton();
+      }, 400);
+
+    } catch (err) {
+      showError(
+        'Failed to Load Game',
+        `Could not download "${gameTitle}". Make sure the .rvz file is attached to your GitHub Release and the repo is public. (${err.message})`
+      );
+    }
+  }
+
+  // ── UI helpers ─────────────────────────────────────────────
+  function setProgress(pct) {
+    document.getElementById('progress-bar').style.width = pct + '%';
+  }
+
+  function setHint(text) {
+    document.getElementById('loading-hint').textContent = text;
   }
 
   function goBack() { window.location.href = 'index.html'; }
@@ -239,7 +362,6 @@
     document.getElementById('error-screen').style.display = 'flex';
   }
 
-  // Home key → back to launcher
   document.addEventListener('keydown', e => { if (e.key === 'Home') goBack(); });
 </script>
 </body>
