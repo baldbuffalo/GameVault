@@ -6,6 +6,9 @@ on:
     paths:
       - '.github/workflows/build-dolphin.yml'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -32,17 +35,27 @@ jobs:
       - name: Verify emcc
         run: emcc --version
 
+      - name: Get latest Dolphin commit and release
+        id: dolphin-version
+        run: |
+          SHA=$(git ls-remote https://github.com/dolphin-emu/dolphin.git HEAD | cut -f1)
+          RELEASE=$(curl -s https://api.github.com/repos/dolphin-emu/dolphin/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
+          echo "sha=$SHA" >> $GITHUB_OUTPUT
+          echo "release=$RELEASE" >> $GITHUB_OUTPUT
+          echo "Latest commit: $SHA"
+          echo "Latest release: $RELEASE"
+
       - name: Cache Dolphin source
         uses: actions/cache@v5.0.4
         id: dolphin-cache
         with:
           path: .dolphin-src
-          key: dolphin-src-${{ github.run_id }}
-          restore-keys: dolphin-src-
+          key: dolphin-src-${{ steps.dolphin-version.outputs.sha }}-${{ steps.dolphin-version.outputs.release }}
 
       - name: Clone Dolphin
         if: steps.dolphin-cache.outputs.cache-hit != 'true'
         run: |
+          rm -rf .dolphin-src
           git clone --depth=1 https://github.com/dolphin-emu/dolphin.git .dolphin-src
           cd .dolphin-src
           git submodule update --init --recursive
@@ -60,6 +73,12 @@ jobs:
             -DENABLE_NOGUI=ON \
             -DUSE_SHARED_ENET=OFF \
             -DENABLE_ANALYTICS=OFF \
+            -DENABLE_ALSA=OFF \
+            -DENABLE_PULSEAUDIO=OFF \
+            -DENABLE_VULKAN=OFF \
+            -DENABLE_EGL=OFF \
+            -DUSE_DISCORD_PRESENCE=OFF \
+            -DENABLE_LLVM=OFF \
             2>&1 | tee cmake-output.log || true
           echo "--- CMake errors ---"
           grep -i "error\|could not" cmake-output.log | head -40 || true
@@ -84,14 +103,19 @@ jobs:
       - name: Copy WASM output
         run: |
           mkdir -p dolphin-wasm
+          FOUND=0
           for f in dolphin.js dolphin.wasm dolphin.data \
                     Dolphin.js Dolphin.wasm Dolphin.data; do
             if [ -f ".dolphin-src/build-wasm/$f" ]; then
               cp ".dolphin-src/build-wasm/$f" dolphin-wasm/
               echo "✓ Copied $f"
+              FOUND=1
             fi
           done
-          ls -lh dolphin-wasm/ || echo "No output files yet"
+          if [ $FOUND -eq 0 ]; then
+            echo "❌ No WASM output files found — build failed"
+            exit 1
+          fi
 
       - name: Commit WASM files
         run: |
