@@ -75,6 +75,34 @@
       transition: width 0.3s ease;
     }
 
+    /* ── Wii Remote prompt (shown during loading) ── */
+    #wm-loading-prompt {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(124,58,237,0.1);
+      border: 1px solid rgba(124,58,237,0.25);
+      border-radius: 50px;
+      padding: 8px 18px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #a78bfa;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    #wm-loading-prompt:hover { background: rgba(124,58,237,0.2); }
+
+    #wm-loading-prompt .wm-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #6b6b9a;
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+
+    #wm-loading-prompt .wm-dot.connected { background: #22c55e; }
+
     /* ── Error screen ── */
     #error-screen {
       display: none;
@@ -123,7 +151,7 @@
 
     .back-btn:hover { transform: scale(1.04); opacity: 0.9; }
 
-    /* ── Back overlay ── */
+    /* ── Back overlay (shown on mouse/Home button) ── */
     #back-overlay {
       position: fixed;
       top: 16px; left: 16px;
@@ -157,6 +185,36 @@
       color: #fff;
     }
 
+    /* ── Controller status overlay (top-right, in-game) ── */
+    #ctrl-status {
+      position: fixed;
+      top: 16px; right: 16px;
+      z-index: 100;
+      opacity: 0;
+      transition: opacity 0.4s;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(0,0,0,0.6);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 50px;
+      padding: 6px 14px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      backdrop-filter: blur(6px);
+    }
+
+    #ctrl-status.visible { opacity: 1; }
+    #ctrl-status .ctrl-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #3f3f6a;
+      transition: background 0.3s;
+    }
+
+    #ctrl-status .ctrl-dot.ok { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.5); }
+
     /* ── Game canvas ── */
     #game-container {
       width: 100vw;
@@ -184,6 +242,10 @@
     <div class="loading-progress-bar" id="progress-bar"></div>
   </div>
   <div class="loading-hint" id="loading-hint">Loading Dolphin core...</div>
+  <div id="wm-loading-prompt" title="Connect Wii Remote for this game">
+    <div class="wm-dot" id="wm-dot"></div>
+    <span id="wm-prompt-label">Connect Wii Remote</span>
+  </div>
 </div>
 
 <div id="error-screen">
@@ -197,11 +259,19 @@
   <div class="back-pill" onclick="goBack()">← Back to Games</div>
 </div>
 
+<div id="ctrl-status">
+  <div class="ctrl-dot" id="ctrl-dot"></div>
+  <span id="ctrl-label">No controller</span>
+</div>
+
 <div id="game-container">
   <canvas id="game-canvas"></canvas>
 </div>
 
-<script>
+<script type="module">
+  import { Wiimote } from './wiimote.js';
+
+  // ── URL params ─────────────────────────────────────────────────────────────
   const params    = new URLSearchParams(window.location.search);
   const gameTitle = params.get('title') || 'Game';
   const gameFile  = params.get('file')  || '';
@@ -211,7 +281,119 @@
 
   const DOLPHIN_BASE = 'dolphin-wasm/';
 
-  // ── Entry point ────────────────────────────────────────────
+  // ── Wii Remote ─────────────────────────────────────────────────────────────
+  const wm            = new Wiimote();
+  const wmPrompt      = document.getElementById('wm-loading-prompt');
+  const wmDot         = document.getElementById('wm-dot');
+  const wmPromptLabel = document.getElementById('wm-prompt-label');
+  const ctrlStatus    = document.getElementById('ctrl-status');
+  const ctrlDot       = document.getElementById('ctrl-dot');
+  const ctrlLabel     = document.getElementById('ctrl-label');
+
+  wmPrompt.addEventListener('click', async () => {
+    if (!wm.connected) await wm.requestConnect();
+  });
+
+  wm.on('connected', () => {
+    wmDot.classList.add('connected');
+    wmPromptLabel.textContent = 'Wii Remote connected ✓';
+    ctrlDot.classList.add('ok');
+    ctrlLabel.textContent = 'Wii Remote';
+    ctrlStatus.classList.add('visible');
+    setTimeout(() => ctrlStatus.classList.remove('visible'), 3000);
+    // Rumble to confirm
+    wm.rumble(200);
+  });
+
+  wm.on('disconnected', () => {
+    wmDot.classList.remove('connected');
+    wmPromptLabel.textContent = 'Connect Wii Remote';
+    ctrlDot.classList.remove('ok');
+    ctrlLabel.textContent = 'No controller';
+    ctrlStatus.classList.add('visible');
+    setTimeout(() => ctrlStatus.classList.remove('visible'), 3000);
+  });
+
+  // Home button → go back
+  wm.on('button', ({ name, pressed }) => {
+    if (name === 'HOME' && pressed) goBack();
+  });
+
+  /**
+   * Forward Wii Remote buttons to Dolphin via a synthetic Gamepad.
+   *
+   * Dolphin WASM uses the browser Gamepad API internally to read input.
+   * We inject a virtual gamepad entry so Dolphin sees the Wii Remote.
+   *
+   * Button mapping (matches Dolphin's default Wiimote mapping):
+   *   Gamepad idx 0 = Wiimote 1
+   *   Standard mapping:
+   *     buttons[0] = A,  buttons[1] = B
+   *     buttons[2] = 1,  buttons[3] = 2
+   *     buttons[8] = -,  buttons[9] = +
+   *     buttons[12] = Up, [13] = Down, [14] = Left, [15] = Right
+   *     buttons[16] = Home
+   */
+  const virtualGP = createVirtualGamepad();
+
+  const WM_TO_GP = {
+    A:     0, B:     1, ONE:  2, TWO:  3,
+    MINUS: 8, PLUS:  9,
+    UP:   12, DOWN: 13, LEFT: 14, RIGHT: 15,
+    HOME: 16,
+  };
+
+  wm.on('button', ({ name, pressed }) => {
+    const idx = WM_TO_GP[name];
+    if (idx !== undefined) virtualGP.setButton(idx, pressed);
+  });
+
+  wm.on('accel', ({ x, y, z }) => {
+    // Map accelerometer to axes 2/3 (used by Dolphin for tilt/shake)
+    virtualGP.setAxis(2, x);
+    virtualGP.setAxis(3, y);
+    virtualGP.setAxis(4, z);
+  });
+
+  function createVirtualGamepad() {
+    const buttons = new Array(17).fill(0).map(() => ({ pressed: false, value: 0 }));
+    const axes    = new Array(5).fill(0);
+
+    // Override navigator.getGamepads to inject our virtual entry at index 0
+    // (only if Dolphin calls getGamepads — which the WASM build does)
+    const _orig = navigator.getGamepads.bind(navigator);
+    navigator.getGamepads = function () {
+      const real = Array.from(_orig());
+      // Put virtual gamepad at slot 0 if nothing real is already there
+      const slot  = real[0] ? real.length : 0;
+      const vgp   = {
+        id:        'GameVault Wii Remote (Virtual)',
+        index:     slot,
+        connected: true,
+        timestamp: performance.now(),
+        mapping:   'standard',
+        axes,
+        buttons,
+      };
+      const out = [...real];
+      out[slot] = vgp;
+      return out;
+    };
+
+    return {
+      setButton(idx, pressed) {
+        if (idx < buttons.length) {
+          buttons[idx].pressed = pressed;
+          buttons[idx].value   = pressed ? 1 : 0;
+        }
+      },
+      setAxis(idx, val) {
+        if (idx < axes.length) axes[idx] = val;
+      }
+    };
+  }
+
+  // ── Entry point ─────────────────────────────────────────────────────────────
   if (!gameFile) {
     showError('No Game File', 'No game file URL was provided. Go back and try again.');
   } else {
@@ -219,7 +401,6 @@
   }
 
   async function checkCoreAndStart() {
-    // Check if WASM core exists in our repo
     try {
       const res = await fetch(DOLPHIN_BASE + 'dolphin.js', { method: 'HEAD' });
       if (!res.ok) throw new Error('not found');
@@ -236,17 +417,14 @@
     }
   }
 
-  // ── Load Dolphin WASM ──────────────────────────────────────
+  // ── Load Dolphin WASM ───────────────────────────────────────────────────────
   async function loadDolphin() {
-    // Configure the Dolphin module before the script loads
     window.Module = {
       canvas: document.getElementById('game-canvas'),
 
-      // Called by emscripten as files download
       setStatus(text) {
         if (!text) return;
         setHint(text);
-        // Parse emscripten progress messages like "Downloading data... (x/y)"
         const m = text.match(/\((\d+)\/(\d+)\)/);
         if (m) setProgress(10 + Math.round((parseInt(m[1]) / parseInt(m[2])) * 60));
       },
@@ -260,15 +438,11 @@
       print(text)    { console.log('[Dolphin]', text); },
       printErr(text) { console.warn('[Dolphin]', text); },
 
-      // Emscripten looks for this to find data files
-      locateFile(path) {
-        return DOLPHIN_BASE + path;
-      }
+      locateFile(path) { return DOLPHIN_BASE + path; }
     };
 
-    // Inject the Dolphin JS glue
-    const script = document.createElement('script');
-    script.src = DOLPHIN_BASE + 'dolphin.js';
+    const script   = document.createElement('script');
+    script.src     = DOLPHIN_BASE + 'dolphin.js';
     script.onerror = () => showError(
       'Failed to Load Core',
       'dolphin.js failed to load. The build may be incomplete — check the GitHub Actions logs.'
@@ -276,7 +450,7 @@
     document.body.appendChild(script);
   }
 
-  // ── Load the game ROM ──────────────────────────────────────
+  // ── Load the game ROM ───────────────────────────────────────────────────────
   async function loadGame() {
     setHint(`Downloading ${gameTitle}...`);
 
@@ -299,27 +473,23 @@
 
       const gameData = new Uint8Array(received);
       let offset = 0;
-      for (const chunk of chunks) {
-        gameData.set(chunk, offset);
-        offset += chunk.length;
-      }
+      for (const chunk of chunks) { gameData.set(chunk, offset); offset += chunk.length; }
 
       setProgress(97);
       setHint('Starting game...');
 
-      // Write the ROM into Dolphin's virtual filesystem
       const filename = '/game.rvz';
       Module.FS.writeFile(filename, gameData);
-
-      // Boot it
       Module.dolphinBoot(filename);
 
-      // Fade out loading screen
       setProgress(100);
       setTimeout(() => {
         document.getElementById('loading-screen').classList.add('fade-out');
         setTimeout(() => document.getElementById('loading-screen').remove(), 700);
         showBackButton();
+        // Show controller status briefly
+        ctrlStatus.classList.add('visible');
+        setTimeout(() => ctrlStatus.classList.remove('visible'), 4000);
       }, 400);
 
     } catch (err) {
@@ -330,7 +500,7 @@
     }
   }
 
-  // ── UI helpers ─────────────────────────────────────────────
+  // ── UI helpers ──────────────────────────────────────────────────────────────
   function setProgress(pct) {
     document.getElementById('progress-bar').style.width = pct + '%';
   }
