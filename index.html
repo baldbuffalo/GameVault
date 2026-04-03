@@ -22,9 +22,10 @@
       color: var(--text);
       height: 100vh;
       overflow: hidden;
-      cursor: none;
+      cursor: none; /* hide OS cursor — Wii Remote IR pointer takes over */
     }
 
+    /* ── Starfield ── */
     body::before {
       content: '';
       position: fixed;
@@ -53,6 +54,23 @@
       z-index: 0;
     }
 
+    /* ── IR cursor ── */
+    #ir-cursor {
+      position: fixed;
+      width: 28px;
+      height: 28px;
+      pointer-events: none;
+      z-index: 999;
+      transform: translate(-50%, -50%);
+      display: none;
+      filter: drop-shadow(0 0 8px rgba(124,58,237,0.9));
+      transition: opacity 0.15s;
+    }
+
+    #ir-cursor.active { display: block; }
+    #ir-cursor.lost   { opacity: 0.3; }
+
+    /* ── App layout ── */
     #app {
       position: relative;
       z-index: 1;
@@ -81,7 +99,9 @@
 
     .logo span { color: #f0f0ff; -webkit-text-fill-color: #f0f0ff; }
 
-    .controls-hint { display: flex; gap: 12px; }
+    .header-right { display: flex; align-items: center; gap: 12px; }
+
+    .controls-hint { display: flex; gap: 8px; }
 
     .hint-btn {
       background: #1e1e3f;
@@ -93,6 +113,194 @@
       color: #9090c0;
     }
 
+    /* ── Wii Remote connect button ── */
+    #wm-connect-btn {
+      background: transparent;
+      border: 1.5px solid #3d3d6a;
+      color: #9090c0;
+      font-family: 'Nunito', sans-serif;
+      font-weight: 800;
+      font-size: 0.78rem;
+      padding: 6px 14px;
+      border-radius: 50px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
+      white-space: nowrap;
+    }
+
+    #wm-connect-btn:hover {
+      border-color: #7c3aed;
+      color: #fff;
+      background: rgba(124,58,237,0.12);
+    }
+
+    #wm-connect-btn.connected {
+      border-color: #22c55e;
+      color: #22c55e;
+      background: rgba(34,197,94,0.08);
+    }
+
+    #wm-connect-btn .wm-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
+    }
+
+    /* ── Connect modal ── */
+    #wm-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 500;
+      align-items: center;
+      justify-content: center;
+      background: rgba(8,8,26,0.85);
+      backdrop-filter: blur(8px);
+      animation: fade-in 0.2s ease;
+    }
+
+    #wm-modal.open { display: flex; }
+
+    @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+    .modal-box {
+      background: #13132b;
+      border: 1px solid #2d2d5a;
+      border-radius: 20px;
+      padding: 36px 40px;
+      max-width: 480px;
+      width: 90%;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .modal-title {
+      font-family: 'Fredoka One', cursive;
+      font-size: 1.5rem;
+      color: #a78bfa;
+    }
+
+    .modal-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .modal-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      font-size: 0.9rem;
+      color: #d0d0ff;
+      line-height: 1.5;
+    }
+
+    .step-num {
+      background: linear-gradient(135deg, #7c3aed, #06b6d4);
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 0.75rem;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .modal-warning {
+      background: rgba(124,58,237,0.12);
+      border: 1px solid rgba(124,58,237,0.3);
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 0.8rem;
+      color: #a78bfa;
+      line-height: 1.5;
+    }
+
+    .modal-buttons {
+      display: flex;
+      gap: 10px;
+    }
+
+    .modal-btn-primary {
+      flex: 1;
+      background: linear-gradient(135deg, #7c3aed, #06b6d4);
+      border: none;
+      color: #fff;
+      font-family: 'Fredoka One', cursive;
+      font-size: 1rem;
+      padding: 12px 20px;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: transform 0.15s, opacity 0.15s;
+    }
+
+    .modal-btn-primary:hover { transform: scale(1.02); opacity: 0.9; }
+
+    .modal-btn-secondary {
+      background: transparent;
+      border: 1px solid #3d3d6a;
+      color: #9090c0;
+      font-family: 'Nunito', sans-serif;
+      font-weight: 700;
+      font-size: 0.85rem;
+      padding: 12px 20px;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+
+    .modal-btn-secondary:hover { border-color: #6b6b9a; color: #d0d0ff; }
+
+    /* ── Battery indicator ── */
+    #wm-battery {
+      display: none;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    #wm-battery.visible { display: flex; }
+
+    .battery-bar {
+      width: 28px;
+      height: 10px;
+      border: 1.5px solid currentColor;
+      border-radius: 2px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .battery-bar::after {
+      content: '';
+      position: absolute;
+      right: -4px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px;
+      height: 5px;
+      background: currentColor;
+      border-radius: 0 1px 1px 0;
+    }
+
+    .battery-fill {
+      height: 100%;
+      background: currentColor;
+      border-radius: 1px;
+      transition: width 0.3s;
+    }
+
+    /* ── Info bar ── */
     #game-info-bar {
       height: 52px;
       margin-bottom: 24px;
@@ -127,6 +335,7 @@
       50%      { opacity: 0.8; transform: scale(0.97); }
     }
 
+    /* ── Grid ── */
     #grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -228,6 +437,7 @@
       padding-left: 2px;
     }
 
+    /* ── Initial loading screen ── */
     #loading {
       position: fixed;
       inset: 0;
@@ -264,6 +474,7 @@
 
     .loader-status { font-size: 0.85rem; color: var(--muted); font-weight: 700; }
 
+    /* ── Empty-state message ── */
     #message {
       display: none;
       flex-direction: column;
@@ -280,42 +491,99 @@
     #message p  { font-size: 0.9rem; max-width: 460px; line-height: 1.7; }
     #message code { background: #1e1e3f; padding: 2px 8px; border-radius: 4px; color: #a78bfa; font-size: 0.85rem; }
 
-    #gamepad-status {
+    /* ── Toast notification ── */
+    #toast {
       position: fixed;
-      bottom: 20px; right: 32px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 0.75rem;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #1e1e3f;
+      border: 1px solid #3d3d6a;
+      border-radius: 50px;
+      padding: 10px 22px;
+      font-size: 0.82rem;
       font-weight: 700;
-      color: var(--muted);
-      z-index: 10;
+      color: #d0d0ff;
+      z-index: 900;
+      opacity: 0;
+      transition: opacity 0.25s, transform 0.25s;
+      pointer-events: none;
+      white-space: nowrap;
     }
 
-    #gamepad-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: #3f3f6a;
-      transition: background 0.3s;
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
     }
-
-    #gamepad-dot.connected { background: #22c55e; box-shadow: 0 0 8px rgba(34,197,94,0.5); }
   </style>
 </head>
 <body>
 
+<!-- IR pointer cursor -->
+<svg id="ir-cursor" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <circle cx="14" cy="14" r="10" fill="none" stroke="#7c3aed" stroke-width="2.5" opacity="0.6"/>
+  <circle cx="14" cy="14" r="3.5" fill="#a78bfa"/>
+  <line x1="14" y1="2" x2="14" y2="8"   stroke="#7c3aed" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="14" y1="20" x2="14" y2="26"  stroke="#7c3aed" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="2"  y1="14" x2="8"  y2="14"  stroke="#7c3aed" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="20" y1="14" x2="26" y2="14"  stroke="#7c3aed" stroke-width="1.5" stroke-linecap="round"/>
+</svg>
+
+<!-- Wii Remote connect modal -->
+<div id="wm-modal" role="dialog" aria-modal="true" aria-label="Connect Wii Remote">
+  <div class="modal-box">
+    <div class="modal-title">🎮 Connect Wii Remote</div>
+    <div class="modal-steps">
+      <div class="modal-step">
+        <div class="step-num">1</div>
+        <div>Remove the battery cover and press the red <strong>SYNC</strong> button on the back of your Wii Remote. The LEDs will start blinking.</div>
+      </div>
+      <div class="modal-step">
+        <div class="step-num">2</div>
+        <div>Click <strong>Connect via Browser</strong> below. A browser dialog will appear — select your Wii Remote from the list.</div>
+      </div>
+      <div class="modal-step">
+        <div class="step-num">3</div>
+        <div>Point the remote at your screen. <strong>D-pad</strong> navigates, <strong>A</strong> launches, <strong>Home</strong> goes back.</div>
+      </div>
+    </div>
+    <div class="modal-warning">
+      ⚠️ Requires Chrome 89+ or Edge 89+ (WebHID). Firefox and Safari do not support WebHID. Pair the remote via SYNC, not OS Bluetooth settings.
+    </div>
+    <div id="wm-modal-fallback" style="display:none; font-size:0.82rem; color:#a78bfa; line-height:1.5;">
+      WebHID is not available in this browser. Pair your Wii Remote via OS Bluetooth settings, then press any button — it will be detected automatically.
+    </div>
+    <div class="modal-buttons">
+      <button class="modal-btn-primary" id="wm-modal-connect">Connect via Browser</button>
+      <button class="modal-btn-secondary" id="wm-modal-close">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Loading overlay -->
 <div id="loading">
   <div class="loader-logo">🎮 GameVault</div>
   <div class="loader-spinner"></div>
   <div class="loader-status" id="loader-status">Scanning games...</div>
 </div>
 
+<!-- App -->
 <div id="app">
   <header>
     <div class="logo">🎮 Game<span>Vault</span></div>
-    <div class="controls-hint">
-      <span class="hint-btn">↑↓←→ Navigate</span>
-      <span class="hint-btn">A / Enter Launch</span>
+    <div class="header-right">
+      <div class="controls-hint">
+        <span class="hint-btn">↑↓←→ Navigate</span>
+        <span class="hint-btn">A / Enter Launch</span>
+      </div>
+      <div id="wm-battery" title="Wii Remote battery">
+        <div class="battery-bar"><div class="battery-fill" id="wm-battery-fill" style="width:0%"></div></div>
+        <span id="wm-battery-pct">–%</span>
+      </div>
+      <button id="wm-connect-btn" title="Connect Wii Remote">
+        <span class="wm-dot"></span>
+        <span id="wm-btn-label">Connect Wii Remote</span>
+      </button>
     </div>
   </header>
 
@@ -329,18 +597,15 @@
   <div id="message"></div>
 </div>
 
-<div id="gamepad-status">
-  <div id="gamepad-dot"></div>
-  <span id="gamepad-label">No controller</span>
-</div>
+<div id="toast"></div>
 
-<script>
+<script type="module">
+  import { Wiimote } from './wiimote.js';
+
+  // ── State ──────────────────────────────────────────────────────────────────
   let games         = [];
   let selectedIndex = 0;
-  let gamepadIndex  = null;
-  let gamepadPollId = null;
-  let lastAxes      = [];
-  let lastButtons   = [];
+  const wm          = new Wiimote();
 
   const palettes = [
     ['#7c3aed','#06b6d4'], ['#ea580c','#facc15'],
@@ -351,12 +616,10 @@
 
   const icons = ['🎳','🎵','⚽','🎯','🏆','🎉','🏄','🎮'];
 
+  // ── Helpers ────────────────────────────────────────────────────────────────
   function toTitle(filename) {
-    return filename
-      .replace(/\.rvz$/i, '')
-      .replace(/[-_]/g, ' ')
-      .replace(/\b\w/g, c => c.toUpperCase())
-      .trim();
+    return filename.replace(/\.rvz$/i,'').replace(/[-_]/g,' ')
+      .replace(/\b\w/g, c => c.toUpperCase()).trim();
   }
 
   function formatSize(bytes) {
@@ -365,6 +628,143 @@
     return gb >= 1 ? gb.toFixed(1) + ' GB' : (bytes / 1048576).toFixed(0) + ' MB';
   }
 
+  function showToast(msg, ms = 2800) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(el._tid);
+    el._tid = setTimeout(() => el.classList.remove('show'), ms);
+  }
+
+  // ── Wii Remote UI ──────────────────────────────────────────────────────────
+  const connectBtn   = document.getElementById('wm-connect-btn');
+  const btnLabel     = document.getElementById('wm-btn-label');
+  const modal        = document.getElementById('wm-modal');
+  const modalConnect = document.getElementById('wm-modal-connect');
+  const modalClose   = document.getElementById('wm-modal-close');
+  const irCursor     = document.getElementById('ir-cursor');
+  const batteryEl    = document.getElementById('wm-battery');
+  const batteryFill  = document.getElementById('wm-battery-fill');
+  const batteryPct   = document.getElementById('wm-battery-pct');
+
+  // Hide WebHID button if not supported
+  if (!wm.supportsWebHID) {
+    document.getElementById('wm-modal-fallback').style.display = 'block';
+    modalConnect.style.display = 'none';
+  }
+
+  connectBtn.addEventListener('click', () => {
+    if (wm.connected) {
+      wm.disconnect();
+    } else {
+      modal.classList.add('open');
+    }
+  });
+
+  modalClose.addEventListener('click', () => modal.classList.remove('open'));
+
+  modal.addEventListener('click', e => {
+    if (e.target === modal) modal.classList.remove('open');
+  });
+
+  modalConnect.addEventListener('click', async () => {
+    modal.classList.remove('open');
+    const ok = await wm.requestConnect();
+    if (!ok) showToast('No Wii Remote selected.');
+  });
+
+  // ── Wii Remote events ──────────────────────────────────────────────────────
+
+  wm.on('connected', () => {
+    connectBtn.classList.add('connected');
+    btnLabel.textContent = 'Wii Remote ✓';
+    showToast('🎮 Wii Remote connected!');
+  });
+
+  wm.on('disconnected', () => {
+    connectBtn.classList.remove('connected');
+    btnLabel.textContent = 'Connect Wii Remote';
+    batteryEl.classList.remove('visible');
+    irCursor.classList.remove('active');
+    showToast('Wii Remote disconnected.');
+  });
+
+  wm.on('status', info => {
+    if (info.type === 'battery') {
+      const pct = Math.min(100, Math.max(0, info.battery));
+      batteryEl.classList.add('visible');
+      batteryFill.style.width = pct + '%';
+      batteryPct.textContent = pct + '%';
+      // Color code: green > 40%, yellow > 20%, red otherwise
+      const color = pct > 40 ? '#22c55e' : pct > 20 ? '#facc15' : '#ef4444';
+      batteryEl.style.color = color;
+    }
+  });
+
+  // Button → navigation mapping
+  const btnRepeat = {}; // for held-button repeat (not needed for press-only)
+
+  wm.on('button', ({ name, pressed }) => {
+    if (!pressed) return; // only act on press, not release
+    if (!games.length) return;
+
+    const cols = getColumns();
+    const len  = games.length;
+
+    switch (name) {
+      case 'UP':    selectGame(Math.max(selectedIndex - cols, 0));        break;
+      case 'DOWN':  selectGame(Math.min(selectedIndex + cols, len - 1));  break;
+      case 'LEFT':  selectGame((selectedIndex - 1 + len) % len);          break;
+      case 'RIGHT': selectGame((selectedIndex + 1) % len);                break;
+      case 'A':     launchGame();                                          break;
+      case 'HOME':  /* reserved for in-game back */                        break;
+      case 'PLUS':  /* optional: scroll page down */                       break;
+      case 'MINUS': /* optional: scroll page up  */                        break;
+    }
+  });
+
+  // IR pointer → visual cursor + hover-select
+  let irHoverTimer = null;
+  let irLastCard   = null;
+
+  wm.on('ir', ({ x, y, visible }) => {
+    if (x === null) {
+      irCursor.classList.add('lost');
+      return;
+    }
+
+    irCursor.classList.add('active');
+    irCursor.classList.toggle('lost', !visible);
+
+    const px = x * window.innerWidth;
+    const py = y * window.innerHeight;
+    irCursor.style.left = px + 'px';
+    irCursor.style.top  = py + 'px';
+
+    // Hover-select: find which card the pointer is over
+    const el = document.elementFromPoint(px, py)?.closest('.game-card');
+    if (el && el !== irLastCard) {
+      irLastCard = el;
+      clearTimeout(irHoverTimer);
+      irHoverTimer = setTimeout(() => {
+        const idx = parseInt(el.dataset.index);
+        if (!isNaN(idx)) selectGame(idx);
+      }, 300); // 300 ms dwell to select
+    } else if (!el) {
+      irLastCard = null;
+      clearTimeout(irHoverTimer);
+    }
+  });
+
+  // Mouse fallback cursor — show when mouse moves, hide when IR is active
+  document.addEventListener('mousemove', e => {
+    if (!wm.connected || !irCursor.classList.contains('active')) {
+      // Not using IR — restore OS cursor
+      document.body.style.cursor = '';
+    }
+  });
+
+  // ── Game grid ──────────────────────────────────────────────────────────────
   async function init() {
     setStatus('Reading config...');
     let config;
@@ -474,6 +874,8 @@
     card?.classList.add('selected');
     card?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     updateInfoBar();
+    // Subtle rumble on navigation (only when using Wii Remote)
+    if (wm.connected) wm.rumble(60);
   }
 
   function updateInfoBar() {
@@ -488,10 +890,13 @@
   function launchGame() {
     if (!games.length) return;
     const g = games[selectedIndex];
+    // Longer rumble on launch
+    if (wm.connected) wm.rumble(250);
     const p = new URLSearchParams({ id: g.id, title: g.title, file: g.file });
     window.location.href = `emulator.html?${p}`;
   }
 
+  // Keyboard navigation (always works alongside Wii Remote)
   document.addEventListener('keydown', e => {
     if (!games.length) return;
     const cols = getColumns();
@@ -507,49 +912,6 @@
     const grid = document.getElementById('grid');
     if (!grid?.firstChild) return 4;
     return getComputedStyle(grid).gridTemplateColumns.split(' ').length;
-  }
-
-  window.addEventListener('gamepadconnected', e => {
-    gamepadIndex = e.gamepad.index;
-    document.getElementById('gamepad-dot').classList.add('connected');
-    document.getElementById('gamepad-label').textContent = 'Controller connected';
-    startGamepadPoll();
-  });
-
-  window.addEventListener('gamepaddisconnected', () => {
-    gamepadIndex = null;
-    document.getElementById('gamepad-dot').classList.remove('connected');
-    document.getElementById('gamepad-label').textContent = 'No controller';
-    if (gamepadPollId) cancelAnimationFrame(gamepadPollId);
-  });
-
-  function startGamepadPoll() {
-    function poll() {
-      const gp = navigator.getGamepads()[gamepadIndex];
-      if (!gp || !games.length) { gamepadPollId = requestAnimationFrame(poll); return; }
-
-      const buttons = gp.buttons.map(b => b.pressed);
-      const axes    = gp.axes;
-      const cols    = getColumns();
-      const len     = games.length;
-
-      const up      = (buttons[12] && !lastButtons[12]) || (axes[1] < -0.5 && (lastAxes[1]||0) >= -0.5);
-      const down    = (buttons[13] && !lastButtons[13]) || (axes[1] >  0.5 && (lastAxes[1]||0) <=  0.5);
-      const left    = (buttons[14] && !lastButtons[14]) || (axes[0] < -0.5 && (lastAxes[0]||0) >= -0.5);
-      const right   = (buttons[15] && !lastButtons[15]) || (axes[0] >  0.5 && (lastAxes[0]||0) <=  0.5);
-      const confirm = (buttons[0] && !lastButtons[0]) || (buttons[1] && !lastButtons[1]);
-
-      if      (right)   selectGame((selectedIndex + 1) % len);
-      else if (left)    selectGame((selectedIndex - 1 + len) % len);
-      else if (down)    selectGame(Math.min(selectedIndex + cols, len - 1));
-      else if (up)      selectGame(Math.max(selectedIndex - cols, 0));
-      if (confirm) launchGame();
-
-      lastButtons = buttons;
-      lastAxes    = [...axes];
-      gamepadPollId = requestAnimationFrame(poll);
-    }
-    gamepadPollId = requestAnimationFrame(poll);
   }
 
   function setStatus(msg) { document.getElementById('loader-status').textContent = msg; }
