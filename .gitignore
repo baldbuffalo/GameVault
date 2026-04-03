@@ -1,0 +1,14 @@
+# Dolphin source — never commit this (1.5GB)
+.dolphin-src/
+
+# Build artifacts we don't need in repo
+*.o
+*.bc
+*.a
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+*.swp
