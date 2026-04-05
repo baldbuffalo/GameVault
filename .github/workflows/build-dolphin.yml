@@ -30,7 +30,7 @@ jobs:
       - name: Set up Emscripten
         uses: mymindstorm/setup-emsdk@v14
         with:
-          version: latest
+          version: 3.1.51
 
       - name: Verify emcc
         run: emcc --version
@@ -67,9 +67,31 @@ jobs:
         run: |
           mkdir -p .dolphin-src/build-wasm
           cd .dolphin-src/build-wasm
+
+          EMCC_LINK_FLAGS="\
+            -pthread \
+            -s USE_PTHREADS=1 \
+            -s PTHREAD_POOL_SIZE=8 \
+            -s ALLOW_MEMORY_GROWTH=1 \
+            -s MAXIMUM_MEMORY=4294967296 \
+            -s INITIAL_MEMORY=268435456 \
+            -s FORCE_FILESYSTEM=1 \
+            -s EXPORTED_FUNCTIONS=_main,_dolphinBoot \
+            -s EXPORTED_RUNTIME_METHODS=FS,callMain \
+            -s EXIT_RUNTIME=0 \
+            -s WASM=1 \
+            -s FULL_ES3=1 \
+            -s USE_WEBGL2=1 \
+            -s OFFSCREEN_FRAMEBUFFER=1 \
+            -s OFFSCREENCANVAS_SUPPORT=1 \
+            -s ASYNCIFY=1"
+
           emcmake cmake .. \
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_EXE_LINKER_FLAGS="$EMCC_LINK_FLAGS" \
+            -DCMAKE_CXX_FLAGS="-fexceptions -pthread" \
+            -DCMAKE_C_FLAGS="-pthread" \
             -DENABLE_SDL=OFF \
             -DENABLE_QT=OFF \
             -DENABLE_TESTS=OFF \
@@ -83,6 +105,7 @@ jobs:
             -DUSE_DISCORD_PRESENCE=OFF \
             -DENABLE_LLVM=OFF \
             2>&1 | tee cmake-output.log || true
+
           echo "--- CMake errors ---"
           grep -i "error\|could not" cmake-output.log | head -40 || true
 
@@ -120,7 +143,8 @@ jobs:
           mkdir -p dolphin-wasm
           FOUND=0
           for f in dolphin.js dolphin.wasm dolphin.data \
-                    Dolphin.js Dolphin.wasm Dolphin.data; do
+                    Dolphin.js Dolphin.wasm Dolphin.data \
+                    dolphin-emu.js dolphin-emu.wasm dolphin-emu.data; do
             if [ -f ".dolphin-src/build-wasm/$f" ]; then
               cp ".dolphin-src/build-wasm/$f" dolphin-wasm/
               echo "✓ Copied $f"
@@ -128,9 +152,19 @@ jobs:
             fi
           done
           if [ $FOUND -eq 0 ]; then
+            find .dolphin-src/build-wasm -maxdepth 2 \( -name "*.js" -o -name "*.wasm" -o -name "*.data" \) \
+              ! -path "*/CMakeFiles/*" \
+              -exec cp {} dolphin-wasm/ \; -exec echo "✓ Copied {}" \;
+            FOUND=$(ls dolphin-wasm/ 2>/dev/null | wc -l)
+          fi
+          if [ "$FOUND" -eq 0 ]; then
             echo "❌ No WASM output files found — build failed"
             exit 1
           fi
+          cd dolphin-wasm
+          for f in *.js;   do [ "$f" != "dolphin.js"   ] && mv "$f" dolphin.js   && echo "→ renamed to dolphin.js";   done
+          for f in *.wasm; do [ "$f" != "dolphin.wasm" ] && mv "$f" dolphin.wasm && echo "→ renamed to dolphin.wasm"; done
+          for f in *.data; do [ "$f" != "dolphin.data" ] && mv "$f" dolphin.data && echo "→ renamed to dolphin.data"; done
 
       - name: Commit WASM files
         run: |
