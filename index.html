@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GameVault</title>
+  <script src="sw-register.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -22,10 +23,9 @@
       color: var(--text);
       height: 100vh;
       overflow: hidden;
-      cursor: none; /* hide OS cursor — Wii Remote IR pointer takes over */
+      cursor: none;
     }
 
-    /* ── Starfield ── */
     body::before {
       content: '';
       position: fixed;
@@ -54,7 +54,6 @@
       z-index: 0;
     }
 
-    /* ── IR cursor ── */
     #ir-cursor {
       position: fixed;
       width: 28px;
@@ -70,7 +69,6 @@
     #ir-cursor.active { display: block; }
     #ir-cursor.lost   { opacity: 0.3; }
 
-    /* ── App layout ── */
     #app {
       position: relative;
       z-index: 1;
@@ -113,7 +111,6 @@
       color: #9090c0;
     }
 
-    /* ── Wii Remote connect button ── */
     #wm-connect-btn {
       background: transparent;
       border: 1.5px solid #3d3d6a;
@@ -151,7 +148,6 @@
       flex-shrink: 0;
     }
 
-    /* ── Connect modal ── */
     #wm-modal {
       display: none;
       position: fixed;
@@ -186,11 +182,7 @@
       color: #a78bfa;
     }
 
-    .modal-steps {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
+    .modal-steps { display: flex; flex-direction: column; gap: 12px; }
 
     .modal-step {
       display: flex;
@@ -225,10 +217,7 @@
       line-height: 1.5;
     }
 
-    .modal-buttons {
-      display: flex;
-      gap: 10px;
-    }
+    .modal-buttons { display: flex; gap: 10px; }
 
     .modal-btn-primary {
       flex: 1;
@@ -260,7 +249,6 @@
 
     .modal-btn-secondary:hover { border-color: #6b6b9a; color: #d0d0ff; }
 
-    /* ── Battery indicator ── */
     #wm-battery {
       display: none;
       align-items: center;
@@ -300,7 +288,6 @@
       transition: width 0.3s;
     }
 
-    /* ── Info bar ── */
     #game-info-bar {
       height: 52px;
       margin-bottom: 24px;
@@ -335,7 +322,6 @@
       50%      { opacity: 0.8; transform: scale(0.97); }
     }
 
-    /* ── Grid ── */
     #grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -437,7 +423,6 @@
       padding-left: 2px;
     }
 
-    /* ── Initial loading screen ── */
     #loading {
       position: fixed;
       inset: 0;
@@ -474,7 +459,6 @@
 
     .loader-status { font-size: 0.85rem; color: var(--muted); font-weight: 700; }
 
-    /* ── Empty-state message ── */
     #message {
       display: none;
       flex-direction: column;
@@ -491,7 +475,6 @@
     #message p  { font-size: 0.9rem; max-width: 460px; line-height: 1.7; }
     #message code { background: #1e1e3f; padding: 2px 8px; border-radius: 4px; color: #a78bfa; font-size: 0.85rem; }
 
-    /* ── Toast notification ── */
     #toast {
       position: fixed;
       bottom: 28px;
@@ -519,7 +502,6 @@
 </head>
 <body>
 
-<!-- IR pointer cursor -->
 <svg id="ir-cursor" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   <circle cx="14" cy="14" r="10" fill="none" stroke="#7c3aed" stroke-width="2.5" opacity="0.6"/>
   <circle cx="14" cy="14" r="3.5" fill="#a78bfa"/>
@@ -529,7 +511,6 @@
   <line x1="20" y1="14" x2="26" y2="14"  stroke="#7c3aed" stroke-width="1.5" stroke-linecap="round"/>
 </svg>
 
-<!-- Wii Remote connect modal -->
 <div id="wm-modal" role="dialog" aria-modal="true" aria-label="Connect Wii Remote">
   <div class="modal-box">
     <div class="modal-title">🎮 Connect Wii Remote</div>
@@ -548,7 +529,7 @@
       </div>
     </div>
     <div class="modal-warning">
-      ⚠️ Requires Chrome 89+ or Edge 89+ (WebHID). Firefox and Safari do not support WebHID. Pair the remote via SYNC, not OS Bluetooth settings.
+      ⚠️ Requires Chrome 89+ or Edge 89+ (WebHID). Firefox and Safari do not support WebHID. Pair via SYNC, not OS Bluetooth settings.
     </div>
     <div id="wm-modal-fallback" style="display:none; font-size:0.82rem; color:#a78bfa; line-height:1.5;">
       WebHID is not available in this browser. Pair your Wii Remote via OS Bluetooth settings, then press any button — it will be detected automatically.
@@ -560,14 +541,12 @@
   </div>
 </div>
 
-<!-- Loading overlay -->
 <div id="loading">
   <div class="loader-logo">🎮 GameVault</div>
   <div class="loader-spinner"></div>
   <div class="loader-status" id="loader-status">Scanning games...</div>
 </div>
 
-<!-- App -->
 <div id="app">
   <header>
     <div class="logo">🎮 Game<span>Vault</span></div>
@@ -602,7 +581,6 @@
 <script type="module">
   import { Wiimote } from './wiimote.js';
 
-  // ── State ──────────────────────────────────────────────────────────────────
   let games         = [];
   let selectedIndex = 0;
   const wm          = new Wiimote();
@@ -616,7 +594,6 @@
 
   const icons = ['🎳','🎵','⚽','🎯','🏆','🎉','🏄','🎮'];
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
   function toTitle(filename) {
     return filename.replace(/\.rvz$/i,'').replace(/[-_]/g,' ')
       .replace(/\b\w/g, c => c.toUpperCase()).trim();
@@ -636,7 +613,6 @@
     el._tid = setTimeout(() => el.classList.remove('show'), ms);
   }
 
-  // ── Wii Remote UI ──────────────────────────────────────────────────────────
   const connectBtn   = document.getElementById('wm-connect-btn');
   const btnLabel     = document.getElementById('wm-btn-label');
   const modal        = document.getElementById('wm-modal');
@@ -647,33 +623,23 @@
   const batteryFill  = document.getElementById('wm-battery-fill');
   const batteryPct   = document.getElementById('wm-battery-pct');
 
-  // Hide WebHID button if not supported
   if (!wm.supportsWebHID) {
     document.getElementById('wm-modal-fallback').style.display = 'block';
     modalConnect.style.display = 'none';
   }
 
   connectBtn.addEventListener('click', () => {
-    if (wm.connected) {
-      wm.disconnect();
-    } else {
-      modal.classList.add('open');
-    }
+    if (wm.connected) { wm.disconnect(); } else { modal.classList.add('open'); }
   });
 
   modalClose.addEventListener('click', () => modal.classList.remove('open'));
-
-  modal.addEventListener('click', e => {
-    if (e.target === modal) modal.classList.remove('open');
-  });
+  modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
 
   modalConnect.addEventListener('click', async () => {
     modal.classList.remove('open');
     const ok = await wm.requestConnect();
     if (!ok) showToast('No Wii Remote selected.');
   });
-
-  // ── Wii Remote events ──────────────────────────────────────────────────────
 
   wm.on('connected', () => {
     connectBtn.classList.add('connected');
@@ -695,53 +661,35 @@
       batteryEl.classList.add('visible');
       batteryFill.style.width = pct + '%';
       batteryPct.textContent = pct + '%';
-      // Color code: green > 40%, yellow > 20%, red otherwise
       const color = pct > 40 ? '#22c55e' : pct > 20 ? '#facc15' : '#ef4444';
       batteryEl.style.color = color;
     }
   });
 
-  // Button → navigation mapping
-  const btnRepeat = {}; // for held-button repeat (not needed for press-only)
-
   wm.on('button', ({ name, pressed }) => {
-    if (!pressed) return; // only act on press, not release
-    if (!games.length) return;
-
+    if (!pressed || !games.length) return;
     const cols = getColumns();
     const len  = games.length;
-
     switch (name) {
       case 'UP':    selectGame(Math.max(selectedIndex - cols, 0));        break;
       case 'DOWN':  selectGame(Math.min(selectedIndex + cols, len - 1));  break;
       case 'LEFT':  selectGame((selectedIndex - 1 + len) % len);          break;
       case 'RIGHT': selectGame((selectedIndex + 1) % len);                break;
       case 'A':     launchGame();                                          break;
-      case 'HOME':  /* reserved for in-game back */                        break;
-      case 'PLUS':  /* optional: scroll page down */                       break;
-      case 'MINUS': /* optional: scroll page up  */                        break;
     }
   });
 
-  // IR pointer → visual cursor + hover-select
   let irHoverTimer = null;
   let irLastCard   = null;
 
   wm.on('ir', ({ x, y, visible }) => {
-    if (x === null) {
-      irCursor.classList.add('lost');
-      return;
-    }
-
+    if (x === null) { irCursor.classList.add('lost'); return; }
     irCursor.classList.add('active');
     irCursor.classList.toggle('lost', !visible);
-
     const px = x * window.innerWidth;
     const py = y * window.innerHeight;
     irCursor.style.left = px + 'px';
     irCursor.style.top  = py + 'px';
-
-    // Hover-select: find which card the pointer is over
     const el = document.elementFromPoint(px, py)?.closest('.game-card');
     if (el && el !== irLastCard) {
       irLastCard = el;
@@ -749,26 +697,22 @@
       irHoverTimer = setTimeout(() => {
         const idx = parseInt(el.dataset.index);
         if (!isNaN(idx)) selectGame(idx);
-      }, 300); // 300 ms dwell to select
+      }, 300);
     } else if (!el) {
       irLastCard = null;
       clearTimeout(irHoverTimer);
     }
   });
 
-  // Mouse fallback cursor — show when mouse moves, hide when IR is active
-  document.addEventListener('mousemove', e => {
+  document.addEventListener('mousemove', () => {
     if (!wm.connected || !irCursor.classList.contains('active')) {
-      // Not using IR — restore OS cursor
       document.body.style.cursor = '';
     }
   });
 
-  // ── Game grid ──────────────────────────────────────────────────────────────
   async function init() {
     setStatus('Reading config...');
     let config;
-
     try {
       const res = await fetch('config.json');
       config = await res.json();
@@ -793,19 +737,16 @@
 
   async function fetchGames(username, repo) {
     let release;
-
     try {
       const res = await fetch(
         `https://api.github.com/repos/${username}/${repo}/releases/tags/games`,
         { headers: { 'Accept': 'application/vnd.github.v3+json' } }
       );
-
       if (res.status === 404) {
         showMessage('📦', 'No "games" Release Found',
-          `Go to your GitHub repo → Releases → create a release tagged <code>games</code> and upload your <code>.rvz</code> files there.`);
+          `Go to your GitHub repo → Releases → create a release tagged <code>games</code> and upload your <code>.rvz</code> files.`);
         return;
       }
-
       if (!res.ok) throw new Error(res.status);
       release = await res.json();
     } catch {
@@ -818,7 +759,7 @@
 
     if (!assets.length) {
       showMessage('🎮', 'No .rvz Files Found',
-        'Your <code>games</code> release exists but contains no <code>.rvz</code> files. Upload your game files there.');
+        'Your <code>games</code> release exists but has no <code>.rvz</code> files. Upload your game files there.');
       return;
     }
 
@@ -874,7 +815,6 @@
     card?.classList.add('selected');
     card?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     updateInfoBar();
-    // Subtle rumble on navigation (only when using Wii Remote)
     if (wm.connected) wm.rumble(60);
   }
 
@@ -890,13 +830,11 @@
   function launchGame() {
     if (!games.length) return;
     const g = games[selectedIndex];
-    // Longer rumble on launch
     if (wm.connected) wm.rumble(250);
     const p = new URLSearchParams({ id: g.id, title: g.title, file: g.file });
     window.location.href = `emulator.html?${p}`;
   }
 
-  // Keyboard navigation (always works alongside Wii Remote)
   document.addEventListener('keydown', e => {
     if (!games.length) return;
     const cols = getColumns();
