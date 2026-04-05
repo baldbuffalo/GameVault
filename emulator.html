@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Playing...</title>
+  <script src="sw-register.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -16,7 +17,6 @@
       overflow: hidden;
     }
 
-    /* ── Loading screen ── */
     #loading-screen {
       position: fixed;
       inset: 0;
@@ -75,7 +75,6 @@
       transition: width 0.3s ease;
     }
 
-    /* ── Wii Remote prompt (shown during loading) ── */
     #wm-loading-prompt {
       display: flex;
       align-items: center;
@@ -103,7 +102,6 @@
 
     #wm-loading-prompt .wm-dot.connected { background: #22c55e; }
 
-    /* ── Error screen ── */
     #error-screen {
       display: none;
       position: fixed;
@@ -151,7 +149,6 @@
 
     .back-btn:hover { transform: scale(1.04); opacity: 0.9; }
 
-    /* ── Back overlay (shown on mouse/Home button) ── */
     #back-overlay {
       position: fixed;
       top: 16px; left: 16px;
@@ -185,7 +182,6 @@
       color: #fff;
     }
 
-    /* ── Controller status overlay (top-right, in-game) ── */
     #ctrl-status {
       position: fixed;
       top: 16px; right: 16px;
@@ -206,6 +202,7 @@
     }
 
     #ctrl-status.visible { opacity: 1; }
+
     #ctrl-status .ctrl-dot {
       width: 6px; height: 6px;
       border-radius: 50%;
@@ -215,7 +212,6 @@
 
     #ctrl-status .ctrl-dot.ok { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.5); }
 
-    /* ── Game canvas ── */
     #game-container {
       width: 100vw;
       height: 100vh;
@@ -271,7 +267,7 @@
 <script type="module">
   import { Wiimote } from './wiimote.js';
 
-  // ── URL params ─────────────────────────────────────────────────────────────
+  // ── URL params ──────────────────────────────────────────────────────────────
   const params    = new URLSearchParams(window.location.search);
   const gameTitle = params.get('title') || 'Game';
   const gameFile  = params.get('file')  || '';
@@ -281,7 +277,7 @@
 
   const DOLPHIN_BASE = 'dolphin-wasm/';
 
-  // ── Wii Remote ─────────────────────────────────────────────────────────────
+  // ── Wii Remote ──────────────────────────────────────────────────────────────
   const wm            = new Wiimote();
   const wmPrompt      = document.getElementById('wm-loading-prompt');
   const wmDot         = document.getElementById('wm-dot');
@@ -301,7 +297,6 @@
     ctrlLabel.textContent = 'Wii Remote';
     ctrlStatus.classList.add('visible');
     setTimeout(() => ctrlStatus.classList.remove('visible'), 3000);
-    // Rumble to confirm
     wm.rumble(200);
   });
 
@@ -314,26 +309,11 @@
     setTimeout(() => ctrlStatus.classList.remove('visible'), 3000);
   });
 
-  // Home button → go back
   wm.on('button', ({ name, pressed }) => {
     if (name === 'HOME' && pressed) goBack();
   });
 
-  /**
-   * Forward Wii Remote buttons to Dolphin via a synthetic Gamepad.
-   *
-   * Dolphin WASM uses the browser Gamepad API internally to read input.
-   * We inject a virtual gamepad entry so Dolphin sees the Wii Remote.
-   *
-   * Button mapping (matches Dolphin's default Wiimote mapping):
-   *   Gamepad idx 0 = Wiimote 1
-   *   Standard mapping:
-   *     buttons[0] = A,  buttons[1] = B
-   *     buttons[2] = 1,  buttons[3] = 2
-   *     buttons[8] = -,  buttons[9] = +
-   *     buttons[12] = Up, [13] = Down, [14] = Left, [15] = Right
-   *     buttons[16] = Home
-   */
+  // ── Virtual gamepad (forwards Wii Remote input to Dolphin) ─────────────────
   const virtualGP = createVirtualGamepad();
 
   const WM_TO_GP = {
@@ -349,7 +329,6 @@
   });
 
   wm.on('accel', ({ x, y, z }) => {
-    // Map accelerometer to axes 2/3 (used by Dolphin for tilt/shake)
     virtualGP.setAxis(2, x);
     virtualGP.setAxis(3, y);
     virtualGP.setAxis(4, z);
@@ -359,12 +338,9 @@
     const buttons = new Array(17).fill(0).map(() => ({ pressed: false, value: 0 }));
     const axes    = new Array(5).fill(0);
 
-    // Override navigator.getGamepads to inject our virtual entry at index 0
-    // (only if Dolphin calls getGamepads — which the WASM build does)
     const _orig = navigator.getGamepads.bind(navigator);
     navigator.getGamepads = function () {
       const real = Array.from(_orig());
-      // Put virtual gamepad at slot 0 if nothing real is already there
       const slot  = real[0] ? real.length : 0;
       const vgp   = {
         id:        'GameVault Wii Remote (Virtual)',
@@ -478,16 +454,16 @@
       setProgress(97);
       setHint('Starting game...');
 
+      // Write the ROM into the Emscripten virtual filesystem, then boot it
       const filename = '/game.rvz';
       Module.FS.writeFile(filename, gameData);
-      Module.dolphinBoot(filename);
+      Module.callMain([filename]);
 
       setProgress(100);
       setTimeout(() => {
         document.getElementById('loading-screen').classList.add('fade-out');
         setTimeout(() => document.getElementById('loading-screen').remove(), 700);
         showBackButton();
-        // Show controller status briefly
         ctrlStatus.classList.add('visible');
         setTimeout(() => ctrlStatus.classList.remove('visible'), 4000);
       }, 400);
@@ -500,7 +476,7 @@
     }
   }
 
-  // ── UI helpers ──────────────────────────────────────────────────────────────
+  // ── UI helpers ───────────────────────────────────────────────────────────────
   function setProgress(pct) {
     document.getElementById('progress-bar').style.width = pct + '%';
   }
